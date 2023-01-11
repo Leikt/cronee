@@ -16,3 +16,7 @@ class CroneeSyntaxError(Exception):
 
 class CroneeRangeOrderError(Exception):
     """Exception raised when the range has invalid start and stop values."""
+
+
+class CroneeEmptyValuesError(Exception):
+    """Exception raised when an expression leads to an empty set of valid values."""

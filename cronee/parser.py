@@ -1,5 +1,7 @@
+from typing import Callable
+
 from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError, \
-    CroneeSyntaxError
+    CroneeSyntaxError, CroneeEmptyValuesError
 
 Aliases = dict[str, set[int]]
 
@@ -32,7 +34,7 @@ def parse_value(value: str,
     if value.isnumeric():
         return parse_numeric(value, valid_range)
 
-    if value.isalpha():
+    if value[0].isalpha():
         return parse_alias(value, aliases)
 
     raise CroneeValueError(f"Invalid value '{value}'")
@@ -106,7 +108,7 @@ def parse_range(expression: str, valid_range: set[int], aliases: Aliases) -> set
     return {v for v in valid_range if start <= v <= stop}
 
 
-def parse_step(expression: str, valid_range: set[int], aliases: Aliases) -> int:
+def parse_step(expression: str, valid_range: set[int], aliases: Aliases) -> tuple[int, str]:
     """
     Parses a step expression and returns an integer step value within the valid range.
 
@@ -117,15 +119,17 @@ def parse_step(expression: str, valid_range: set[int], aliases: Aliases) -> int:
     :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid
     :raises: CroneeValueError, if the step value is not valid
     """
+    original_expression = str(expression)
     elements = expression.split(KEYWORD_STEP)
     if len(elements) != 2:
-        raise CroneeSyntaxError(f"Syntax error for the step expression '{expression}'")
-    _, step_str = elements
+        raise CroneeSyntaxError(f"Syntax error for the step expression '{original_expression}'")
+    expression, step_str = elements
     step_set = parse_value(step_str, valid_range, aliases)
     if len(step_set) != 1:
-        raise CroneeValueError(f"Invalid step value for the expression '{expression}'")
+        raise CroneeValueError(f"Invalid step value for the expression '{original_expression}'")
     step = next(iter(step_set))
-    return step
+    mini = min(valid_range)
+    return step, expression
 
 
 def parse_inversion(expression: str) -> tuple[bool, str]:
@@ -181,3 +185,66 @@ def parse_modifiers(expression: str, aliases: Aliases) -> tuple[int, str]:
     positive_modifier, expression = parse_modifier(expression, 1, KEYWORD_POSITIVE_MODIFIER, aliases)
     negative_modifier, expression = parse_modifier(expression, -1, KEYWORD_NEGATIVE_MODIFIER, aliases)
     return positive_modifier + negative_modifier, expression
+
+
+def parse_generic_element(expression: str, valid_range: set[int], aliases: Aliases) -> set[int]:
+    """
+    Parses a string expression for a value or a range of values within a given valid range, applies step and/or inversion to the parsed values, and returns the parsed values as a set of integers.
+
+    :param expression: A string representing the expression to be parsed.
+    :param valid_range: A set of integers representing the valid range of values.
+    :param aliases: (optional) A dictionary of string keys and set of integers values, representing possible aliases for the `value` argument.
+    :return: a set of integers representing the parsed value.
+    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid or if there is a step and a range in the same field or if there is an inversion keyword in the range
+    :raises: CroneeValueError, if the  step value is not valid
+    :raises: CroneeOutOfBoundError, if the `value` or `stop` or `start` argument is out of the valid range
+    :raises: CroneeRangeOrderError, if the `start` value is greater than the `stop` value
+    :raises: CroneeAliasError, if the `value` argument is not in the provided aliases
+    """
+    step = 1
+    if KEYWORD_STEP in expression:
+        step, expression = parse_step(expression, valid_range, aliases)
+
+    if KEYWORD_RANGE in expression:
+        values = parse_range(expression, valid_range, aliases)
+    else:
+        values = parse_value(expression, valid_range, aliases)
+
+    mini = min(values)
+    values = set(filter(lambda v: v % step == mini % step, values))
+    return values
+
+
+def parse_field(expression: str,
+                valid_range: set[int],
+                value_aliases: Aliases,
+                step_aliases: Aliases,
+                element_parser: Callable) -> tuple[int, set[int]]:
+    """
+    Parses a string expression for a field and returns a tuple of the parsed values and a set of integers within a given valid range. The parsed values can be modified by positive and negative modifiers, inverted, and be a list of values and ranges.
+
+    :param expression: A string representing the expression to be parsed.
+    :param valid_range: A set of integers representing the valid range of values.
+    :param value_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the `value` argument.
+    :param step_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the `step` argument.
+    :param element_parser: A callable that takes a string `expression`, a `valid_range` and `value_aliases` as arguments and returns a set of integers
+    :return: a tuple of the parsed values ( an int indicating the sum of the coefficients of the positive and negative modifier multiplied by their respective modifier values) and a set of integers representing the parsed value.
+    :raises: CroneeEmptyValuesError, if the parsed values set is empty.
+    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid or if there is more than one modifier in the same field
+    :raises: CroneeValueError, if the step or value or start or stop or modifier values are not valid.
+    """
+    modifier, expression = parse_modifiers(expression, step_aliases)
+    inversion, expression = parse_inversion(expression)
+
+    values = set()
+    elements = expression.split(KEYWORD_LIST)
+    for element in elements:
+        values = values.union(element_parser(element, valid_range, value_aliases))
+
+    if inversion:
+        values = valid_range.difference(values)
+
+    if len(values) == 0:
+        raise CroneeEmptyValuesError(f"No valid values for the expression '{expression}'")
+
+    return modifier, values
