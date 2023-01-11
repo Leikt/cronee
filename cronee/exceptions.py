@@ -12,3 +12,7 @@ class CroneeOutOfBoundError(Exception):
 
 class CroneeSyntaxError(Exception):
     """Exception raised when the syntax is invalid."""
+
+
+class CroneeRangeOrderError(Exception):
+    """Exception raised when the range has invalid start and stop values."""

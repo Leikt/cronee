@@ -1,11 +1,14 @@
-from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeSyntaxError
+from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError
+
+Aliases = dict[str, set[int]]
 
 TOKEN_JOKER = '*'
+KEYWORD_RANGE = '..'
 
 
 def parse_value(value: str,
                 valid_range: set,
-                aliases: dict[str, set[int]] = None) -> set[int]:
+                aliases: Aliases = None) -> set[int]:
     """
     Parses a value and returns a set of integers within the valid range.
 
@@ -53,7 +56,7 @@ def parse_numeric(value: str, valid_range: set[int]) -> set[int]:
     return {new_value}
 
 
-def parse_alias(value: str, aliases: dict[str, set[int]]) -> set[int]:
+def parse_alias(value: str, aliases: Aliases) -> set[int]:
     """
     Parses an alphabetic value and returns a set of integers within the valid range based on the provided aliases.
 
@@ -67,3 +70,26 @@ def parse_alias(value: str, aliases: dict[str, set[int]]) -> set[int]:
         raise CroneeAliasError(f"Invalid alias {value}")
     return new_values
 
+
+def parse_range(expression: str, valid_range: set[int], aliases: Aliases) -> set[int]:
+    """
+    Parses a range and returns a set of integers within the valid range.
+
+    :param expression: A string representing the range to be parsed, in the form of 'start-stop' where 'start' and 'stop' are strings that can be parsed by the parse_value function.
+    :param valid_range: A set of integers representing the valid range of values.
+    :param aliases: (optional) A dictionary of string keys and set of integers values, representing possible aliases for the `start` and `stop` arguments.
+    :return: a set of integers representing the parsed range
+    :raises: CroneeValueError, if the `start` or `stop` value of the range is not valid
+    :raises: CroneeRangeOrderError, if the `start` value is greater than the `stop` value.
+    """
+    start_str, stop_str = expression.split(KEYWORD_RANGE)
+    start_set = parse_value(start_str, valid_range, aliases)
+    stop_set = parse_value(stop_str, valid_range, aliases)
+    if len(start_set) != 1 or len(stop_set) != 1:
+        raise CroneeValueError(f"Invalid start or stop value for the range '{expression}'")
+    start = next(iter(start_set))
+    stop = next(iter(stop_set))
+    if start >= stop:
+        raise CroneeRangeOrderError(
+            f"The first value of a range must be less than than the second one. Invalid range '{expression}'")
+    return {v for v in valid_range if start <= v <= stop}
