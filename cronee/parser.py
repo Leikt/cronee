@@ -1,4 +1,5 @@
-from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError
+from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError, \
+    CroneeSyntaxError
 
 Aliases = dict[str, set[int]]
 
@@ -82,6 +83,9 @@ def parse_range(expression: str, valid_range: set[int], aliases: Aliases) -> set
     :raises: CroneeValueError, if the `start` or `stop` value of the range is not valid
     :raises: CroneeRangeOrderError, if the `start` value is greater than the `stop` value.
     """
+    elements = expression.split(KEYWORD_RANGE)
+    if len(elements) != 2:
+        raise CroneeSyntaxError(f"Syntax error for the range '{expression}'")
     start_str, stop_str = expression.split(KEYWORD_RANGE)
     start_set = parse_value(start_str, valid_range, aliases)
     stop_set = parse_value(stop_str, valid_range, aliases)
