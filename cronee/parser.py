@@ -148,7 +148,7 @@ def parse_modifier(expression, coef: int, keyword: str, aliases: Aliases) -> tup
     :param coef: An integer representing the coefficient of the modifier.
     :param keyword: A string representing the keyword of the modifier.
     :param aliases: (optional) A dictionary of string keys and set of integers values, representing possible aliases for the `modifier` argument.
-    :return: A tuple of an integer and a string, where the integer indicates the coefficient of the modifier multiplied by the modifier value, and the string is the rest of the expression after the modifier keyword.
+    :return: A tuple of an integer and a string, where the integer indicates the modifier, and the string is the rest of the expression before the modifier keyword.
     :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid
     :raises: CroneeValueError, if the modifier value is not valid
     """
@@ -166,7 +166,18 @@ def parse_modifier(expression, coef: int, keyword: str, aliases: Aliases) -> tup
     return coef * modifier, expression
 
 
-# def parse_field(expression: str, valid_range: set[int], aliases: Aliases) -> tuple[int, set[int]]:
-#     original_expression = str(expression)
-#     inversion, expression = parse_inversion(expression)
-#     elements = expression.split(KEYWORD_LIST)
+def parse_modifiers(expression: str, aliases: Aliases) -> tuple[int, str]:
+    """
+    Parses a string expression for positive and negative modifiers and returns a tuple indicating the sum of the coefficients of the positive and negative modifier multiplied by their respective modifier values and the rest of the expression after the modifier keywords.
+
+    :param expression: A string representing the expression to be parsed.
+    :param aliases: (optional) A dictionary of string keys and set of integers values, representing possible aliases for the `positive` and `negative` modifier arguments.
+    :return: A tuple of an integer and a string, where the integer indicates the modifier, and the string is the rest of the expression before the modifier keywords.
+    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid or if there is more than one modifier in the same field.
+    :raises: CroneeValueError, if the positive or negative modifier values are not valid
+    """
+    if KEYWORD_NEGATIVE_MODIFIER in expression and KEYWORD_POSITIVE_MODIFIER in expression:
+        raise CroneeSyntaxError(f"Cannot have more than one modifier in the same field. Invalid field '{expression}'")
+    positive_modifier, expression = parse_modifier(expression, 1, KEYWORD_POSITIVE_MODIFIER, aliases)
+    negative_modifier, expression = parse_modifier(expression, -1, KEYWORD_NEGATIVE_MODIFIER, aliases)
+    return positive_modifier + negative_modifier, expression

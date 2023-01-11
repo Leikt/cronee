@@ -1,7 +1,7 @@
 import unittest
 
 from cronee import CroneeSyntaxError, CroneeValueError
-from cronee.parser import parse_modifier, KEYWORD_NEGATIVE_MODIFIER, KEYWORD_POSITIVE_MODIFIER
+from cronee.parser import parse_modifier, parse_modifiers, KEYWORD_NEGATIVE_MODIFIER, KEYWORD_POSITIVE_MODIFIER
 
 
 class TestParseModifier(unittest.TestCase):
@@ -24,3 +24,12 @@ class TestParseModifier(unittest.TestCase):
     def test_value_error(self):
         with self.assertRaises(CroneeValueError):
             parse_modifier(f'10+ALI', 1, KEYWORD_POSITIVE_MODIFIER, {'ALI': {0, 1}})
+
+    def test_valid_input(self):
+        modifier, expression = parse_modifiers('10+2', {})
+        self.assertEqual(2, modifier)
+        self.assertEqual('10', expression)
+
+        modifier, expression = parse_modifiers('10-2', {})
+        self.assertEqual(-2, modifier)
+        self.assertEqual('10', expression)
