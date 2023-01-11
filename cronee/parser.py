@@ -1,7 +1,9 @@
+from functools import partial
 from typing import Callable
 
 from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError, \
     CroneeSyntaxError, CroneeEmptyValuesError
+from .cronee import IndexValidator, Validator
 
 Aliases = dict[str, set[int]]
 
@@ -12,6 +14,7 @@ KEYWORD_LIST = ','
 KEYWORD_INVERSION = '!'
 KEYWORD_NEGATIVE_MODIFIER = '-'
 KEYWORD_POSITIVE_MODIFIER = '+'
+KEYWORD_INDEX = '#'
 
 MODIFIERS_RANGE = set(range(0, 366))
 
@@ -142,6 +145,38 @@ def parse_inversion(expression: str) -> tuple[bool, str]:
     if expression.startswith(KEYWORD_INVERSION):
         return True, expression[1:]
     return False, expression
+
+
+def parse_index(expression: str,
+                value_range: set[int],
+                value_aliases: Aliases,
+                index_range: set[int],
+                index_aliases: Aliases,
+                validator: IndexValidator) -> Validator:
+    """
+    Parses a string expression for an index, and returns a function that validates if the current index is in the parsed values.
+
+    :param expression: A string representing the expression to be parsed.
+    :param value_range: A set of integers representing the valid range of values.
+    :param value_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the values argument.
+    :param index_range: A set of integers representing the valid range of indices.
+    :param index_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the index argument.
+    :param validator:  A function that takes an index and values as input and returns a bool indicating whether the current index is in the parsed values or not.
+    :return: A function that takes no input and returns a bool indicating whether the current index is in the parsed values or not.
+    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid.
+    :raises: CroneeValueError, if the index or value  is not valid.
+    """
+    original_expression = str(expression)
+    elements = expression.split(KEYWORD_INDEX)
+    if len(elements) != 2:
+        raise CroneeSyntaxError(f"Syntax error for the index expression '{original_expression}'")
+    expression, index = elements
+    index = parse_value(index, index_range, index_aliases)
+    if len(index) != 1:
+        raise CroneeValueError(f"Invalid index value for the expression '{original_expression}'")
+    values = parse_value(expression, value_range, value_aliases)
+    index = next(iter(index))
+    return partial(validator, index=index, values=values)
 
 
 def parse_modifier(expression, coef: int, keyword: str, aliases: Aliases) -> tuple[int, str]:
