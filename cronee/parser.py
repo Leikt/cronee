@@ -5,6 +5,7 @@ Aliases = dict[str, set[int]]
 
 TOKEN_JOKER = '*'
 KEYWORD_RANGE = '..'
+KEYWORD_STEP = '/'
 
 
 def parse_value(value: str,
@@ -97,3 +98,14 @@ def parse_range(expression: str, valid_range: set[int], aliases: Aliases) -> set
         raise CroneeRangeOrderError(
             f"The first value of a range must be less than than the second one. Invalid range '{expression}'")
     return {v for v in valid_range if start <= v <= stop}
+
+def parse_step(expression: str, valid_range: set[int], aliases: Aliases) -> int:
+    elements = expression.split(KEYWORD_STEP)
+    if len(elements) != 2:
+        raise CroneeSyntaxError(f"Syntax error for the step expression '{expression}'")
+    _, step_str = elements
+    step_set = parse_value(step_str, valid_range, aliases)
+    if len(step_set) != 1:
+        raise CroneeValueError(f"Invalid step value for the expression '{expression}'")
+    step = next(iter(step_set))
+    return step
