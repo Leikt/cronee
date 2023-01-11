@@ -6,6 +6,12 @@ Aliases = dict[str, set[int]]
 TOKEN_JOKER = '*'
 KEYWORD_RANGE = '..'
 KEYWORD_STEP = '/'
+KEYWORD_LIST = ','
+KEYWORD_INVERSION = '!'
+KEYWORD_NEGATIVE_MODIFIER = '-'
+KEYWORD_POSITIVE_MODIFIER = '+'
+
+MODIFIERS_RANGE = set(range(0, 366))
 
 
 def parse_value(value: str,
@@ -99,7 +105,18 @@ def parse_range(expression: str, valid_range: set[int], aliases: Aliases) -> set
             f"The first value of a range must be less than than the second one. Invalid range '{expression}'")
     return {v for v in valid_range if start <= v <= stop}
 
+
 def parse_step(expression: str, valid_range: set[int], aliases: Aliases) -> int:
+    """
+    Parses a step expression and returns an integer step value within the valid range.
+
+    :param expression: A string representing the step expression to be parsed, in the form of '*/step' where 'step' is a string that can be parsed by the parse_value function.
+    :param valid_range: A set of integers representing the valid range of values.
+    :param aliases: (optional) A dictionary of string keys and set of integers values, representing possible aliases for the `step` argument.
+    :return: an integer representing the parsed step value
+    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid
+    :raises: CroneeValueError, if the step value is not valid
+    """
     elements = expression.split(KEYWORD_STEP)
     if len(elements) != 2:
         raise CroneeSyntaxError(f"Syntax error for the step expression '{expression}'")
@@ -109,3 +126,47 @@ def parse_step(expression: str, valid_range: set[int], aliases: Aliases) -> int:
         raise CroneeValueError(f"Invalid step value for the expression '{expression}'")
     step = next(iter(step_set))
     return step
+
+
+def parse_inversion(expression: str) -> tuple[bool, str]:
+    """
+    Parses a string expression and returns a tuple indicating if the inversion keyword is present and the rest of the expression after the inversion keyword.
+
+    :param expression: A string representing the expression to be parsed.
+    :return: A tuple of a boolean and a string, where the boolean indicates if the inversion keyword is present in the expression and the string is the rest of the expression after the inversion keyword.
+    """
+    if expression.startswith(KEYWORD_INVERSION):
+        return True, expression[1:]
+    return False, expression
+
+
+def parse_modifier(expression, coef: int, keyword: str, aliases: Aliases) -> tuple[int, str]:
+    """
+    Parses a string expression for a modifier keyword and returns a tuple indicating the coefficient of the modifier multiplied by the modifier value and the rest of the expression after the modifier keyword.
+
+    :param expression: A string representing the expression to be parsed.
+    :param coef: An integer representing the coefficient of the modifier.
+    :param keyword: A string representing the keyword of the modifier.
+    :param aliases: (optional) A dictionary of string keys and set of integers values, representing possible aliases for the `modifier` argument.
+    :return: A tuple of an integer and a string, where the integer indicates the coefficient of the modifier multiplied by the modifier value, and the string is the rest of the expression after the modifier keyword.
+    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid
+    :raises: CroneeValueError, if the modifier value is not valid
+    """
+    original_expression = expression
+    elements = expression.split(keyword)
+    if len(elements) == 1:
+        return 0, expression
+    if len(elements) != 2:
+        raise CroneeSyntaxError(f"Invalid modifier syntax '{original_expression}'")
+    expression, modifier_str = elements
+    modifier_set = parse_value(modifier_str, MODIFIERS_RANGE, aliases)
+    if len(modifier_set) != 1:
+        raise CroneeValueError(f"Invalid modifier value '{original_expression}'")
+    modifier = next(iter(modifier_set))
+    return coef * modifier, expression
+
+
+# def parse_field(expression: str, valid_range: set[int], aliases: Aliases) -> tuple[int, set[int]]:
+#     original_expression = str(expression)
+#     inversion, expression = parse_inversion(expression)
+#     elements = expression.split(KEYWORD_LIST)
