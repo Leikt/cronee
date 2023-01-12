@@ -1,11 +1,12 @@
 from functools import partial
-from typing import Callable
+from typing import Callable, Optional
 
 from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError, \
     CroneeSyntaxError, CroneeEmptyValuesError
 from .cronee import IndexValidator, Validator
 
 Aliases = dict[str, set[int]]
+ElementParser = Callable[[str, set[int], Aliases], tuple[Optional[Validator], set[int]]]
 
 TOKEN_JOKER = '*'
 KEYWORD_RANGE = '..'
@@ -222,7 +223,9 @@ def parse_modifiers(expression: str, aliases: Aliases) -> tuple[int, str]:
     return positive_modifier + negative_modifier, expression
 
 
-def parse_generic_element(expression: str, valid_range: set[int], aliases: Aliases) -> set[int]:
+def parse_generic_element(expression: str,
+                          valid_range: set[int],
+                          aliases: Aliases) -> tuple[Optional[Validator], set[int]]:
     """
     Parses a string expression for a value or a range of values within a given valid range, applies step and/or inversion to the parsed values, and returns the parsed values as a set of integers.
 
@@ -247,14 +250,14 @@ def parse_generic_element(expression: str, valid_range: set[int], aliases: Alias
 
     mini = min(values)
     values = set(filter(lambda v: v % step == mini % step, values))
-    return values
+    return None, values
 
 
 def parse_field(expression: str,
                 valid_range: set[int],
                 value_aliases: Aliases,
                 step_aliases: Aliases,
-                element_parser: Callable) -> tuple[int, set[int]]:
+                element_parser: ElementParser) -> tuple[int, list[Validator], set[int]]:
     """
     Parses a string expression for a field and returns a tuple of the parsed values and a set of integers within a given valid range. The parsed values can be modified by positive and negative modifiers, inverted, and be a list of values and ranges.
 
@@ -271,10 +274,14 @@ def parse_field(expression: str,
     modifier, expression = parse_modifiers(expression, step_aliases)
     inversion, expression = parse_inversion(expression)
 
+    validators = []
     values = set()
     elements = expression.split(KEYWORD_LIST)
     for element in elements:
-        values = values.union(element_parser(element, valid_range, value_aliases))
+        element_validator, element_values = element_parser(element, valid_range, value_aliases)
+        values = values.union(element_values)
+        if element_validator is not None:
+            validators.append(element_validator)
 
     if inversion:
         values = valid_range.difference(values)
@@ -282,4 +289,4 @@ def parse_field(expression: str,
     if len(values) == 0:
         raise CroneeEmptyValuesError(f"No valid values for the expression '{expression}'")
 
-    return modifier, values
+    return modifier, validators, values
