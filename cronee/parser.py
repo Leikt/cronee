@@ -1,9 +1,11 @@
+import shlex
+from datetime import timedelta
 from functools import partial
 from typing import Callable, Optional
 
 from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError, \
     CroneeSyntaxError, CroneeEmptyValuesError
-from .cronee import IndexValidator, Validator, dow_index_validator
+from .cronee import IndexValidator, Validator, dow_index_validator, Cronee, SimpleCronee
 
 Aliases = dict[str, set[int]]
 ElementParser = Callable[[str, set[int], Aliases], tuple[Optional[Validator], set[int]]]
@@ -19,6 +21,36 @@ KEYWORD_INDEX = '#'
 
 MODIFIERS_RANGE = set(range(0, 366))
 
+MINUTE_RANGE = set(range(0, 60))
+HOUR_RANGE = set(range(0, 24))
+DOM_RANGE = set(range(1, 32))
+MONTH_RANGE = set(range(1, 13))
+DOW_RANGE = set(range(1, 8))
+
+MONTH_ALIASES = {
+    'JAN': {1},
+    'FEB': {2},
+    'MAR': {3},
+    'APR': {4},
+    'MAY': {5},
+    'JUN': {6},
+    'JUI': {7},
+    'AUG': {8},
+    'SEP': {9},
+    'OCT': {10},
+    'NOV': {11},
+    'DEC': {12},
+}
+
+DOW_ALIASES = {
+    'MON': {1},
+    'TUE': {2},
+    'WED': {3},
+    'THU': {4},
+    'FRI': {5},
+    'SAT': {6},
+    'SUN': {7},
+}
 DOW_INDEX_RANGE = set(range(1, 6))
 
 
@@ -258,6 +290,19 @@ def parse_generic_element(expression: str,
 def parse_dow_element(expression: str,
                       valid_range: set[int],
                       aliases: Aliases) -> tuple[Optional[Validator], set[int]]:
+    """
+    Parses a string expression for a value or a range of values within a given valid range or index, applies step and/or inversion to the parsed values, and returns the parsed values as a set of integers.
+
+    :param expression: A string representing the expression to be parsed.
+    :param valid_range: A set of integers representing the valid range of values.
+    :param aliases: (optional) A dictionary of string keys and set of integers values, representing possible aliases for the `value` argument.
+    :return: a set of integers representing the parsed value.
+    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid or if there is a step and a range in the same field or if there is an inversion keyword in the range
+    :raises: CroneeValueError, if the  step value is not valid
+    :raises: CroneeOutOfBoundError, if the `value` or `stop` or `start` argument is out of the valid range
+    :raises: CroneeRangeOrderError, if the `start` value is greater than the `stop` value
+    :raises: CroneeAliasError, if the `value` argument is not in the provided aliases
+    """
     validator = None
     step = 1
     if KEYWORD_STEP in expression:
@@ -279,7 +324,8 @@ def parse_field(expression: str,
                 valid_range: set[int],
                 value_aliases: Aliases,
                 step_aliases: Aliases,
-                element_parser: ElementParser) -> tuple[int, list[Validator], set[int]]:
+                element_parser: ElementParser,
+                allow_empty: bool = False) -> tuple[int, list[Validator], set[int]]:
     """
         Parses a string expression for a field and returns a tuple of the parsed values and a set of integers within a given valid range. The parsed values can be modified by positive and negative modifiers, inverted, and be a list of values and ranges.
 
@@ -308,7 +354,41 @@ def parse_field(expression: str,
     if inversion:
         values = valid_range.difference(values)
 
-    if len(values) == 0:
+    if len(values) == 0 and not allow_empty:
         raise CroneeEmptyValuesError(f"No valid values for the expression '{expression}'")
 
     return modifier, validators, values
+
+
+def parse_expression(expression: str) -> Cronee:
+    """
+    Parse a cron-like expression and returns an instance of Cronee.
+
+    :param expression: A string representing the cron-like expression to be parsed.
+    :return: An instance of Cronee representing the parsed expression.
+    :raises: CroneeSyntaxError, if the number of fields in the expression is different than 5.
+    """
+    fields = shlex.split(expression)
+    if len(fields) != 5:
+        raise CroneeSyntaxError(f'Invalid number of field. A cronee must have 5 fields.')
+
+    min_modifier, min_validators, min_values = parse_field(fields[0], MINUTE_RANGE, {}, {}, parse_generic_element)
+    hou_modifier, hou_validators, hou_values = parse_field(fields[1], HOUR_RANGE, {}, {}, parse_generic_element)
+    dom_modifier, dom_validators, dom_values = parse_field(fields[2], DOM_RANGE, {}, {}, parse_generic_element)
+    mon_modifier, mon_validators, mon_values = parse_field(fields[3], MONTH_RANGE, MONTH_ALIASES, {},
+                                                           parse_generic_element)
+    dow_modifier, dow_validators, dow_values = parse_field(fields[4], DOW_RANGE, DOW_ALIASES, {}, parse_dow_element,
+                                                           True)
+
+    modifier = timedelta(days=dom_modifier + dow_modifier, hours=hou_modifier, minutes=min_modifier)
+    validators = [min_validators, hou_validators, dom_validators, mon_validators, dow_validators]
+
+    return SimpleCronee(
+        minutes=min_values,
+        hours=hou_values,
+        doms=dom_values,
+        months=mon_values,
+        dows=dow_values,
+        offset=modifier,
+        other_validators=validators
+    )
