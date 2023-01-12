@@ -366,7 +366,7 @@ def parse_expression(expression: str) -> Cronee:
 
     :param expression: A string representing the cron-like expression to be parsed.
     :return: An instance of Cronee representing the parsed expression.
-    :raises: CroneeSyntaxError, if the number of fields in the expression is different than 5.
+    :raises: CroneeSyntaxError, if the number of fields in the expression is different from 5.
     """
     fields = shlex.split(expression)
     if len(fields) != 5:
