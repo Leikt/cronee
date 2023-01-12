@@ -38,7 +38,7 @@ class TestParseExpression(unittest.TestCase):
 
     def test_modifiers(self):
         c: SimpleCronee = parse_expression('5-1 3+5 2+3 1+2 2+3')  # NOQA
-        self.assertEqual(timedelta(days=3 + 3, minutes=-1, hours=5), c.offset)
+        self.assertEqual(timedelta(days=-6, minutes=1, hours=-5), c.offset)
 
     def test_index(self):
         c: SimpleCronee = parse_expression('* * * * FRI#3')  # NOQA

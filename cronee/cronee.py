@@ -27,6 +27,7 @@ class SimpleCronee:
     other_validators: list[list[Validator]]
 
     def validate(self, dtime: datetime) -> bool:
+        """ Check if the datetime is valid """
         dtime = dtime + self.offset
         minute_is_valid = dtime.minute in self.minutes or len(self.other_validators[0]) > 0
         hour_is_valid = dtime.hour in self.hours or len(self.other_validators[1]) > 0
@@ -38,7 +39,15 @@ class SimpleCronee:
             dow_is_valid and other_validation
 
     def _validate_others(self, dtime: datetime) -> bool:
-        return all([any(map(lambda v: v(dtime), validator_list)) for validator_list in self.other_validators])
+        for validators in self.other_validators:
+            if len(validators) == 0:
+                continue
+            is_valid = False
+            for validator in validators:
+                is_valid = is_valid or validator(dtime)
+            if not is_valid:
+                return False
+        return True
 
 
 def dow_index_validator(dtime: datetime, index: int, values: set[int]) -> bool:

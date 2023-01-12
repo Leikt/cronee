@@ -252,8 +252,8 @@ def parse_modifiers(expression: str, aliases: Aliases) -> tuple[int, str]:
     """
     if KEYWORD_NEGATIVE_MODIFIER in expression and KEYWORD_POSITIVE_MODIFIER in expression:
         raise CroneeSyntaxError(f"Cannot have more than one modifier in the same field. Invalid field '{expression}'")
-    positive_modifier, expression = parse_modifier(expression, 1, KEYWORD_POSITIVE_MODIFIER, aliases)
-    negative_modifier, expression = parse_modifier(expression, -1, KEYWORD_NEGATIVE_MODIFIER, aliases)
+    positive_modifier, expression = parse_modifier(expression, -1, KEYWORD_POSITIVE_MODIFIER, aliases)
+    negative_modifier, expression = parse_modifier(expression, 1, KEYWORD_NEGATIVE_MODIFIER, aliases)
     return positive_modifier + negative_modifier, expression
 
 

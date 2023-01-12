@@ -27,9 +27,9 @@ class TestParseModifier(unittest.TestCase):
 
     def test_valid_input(self):
         modifier, expression = parse_modifiers('10+2', {})
-        self.assertEqual(2, modifier)
+        self.assertEqual(-2, modifier)
         self.assertEqual('10', expression)
 
         modifier, expression = parse_modifiers('10-2', {})
-        self.assertEqual(-2, modifier)
+        self.assertEqual(2, modifier)
         self.assertEqual('10', expression)

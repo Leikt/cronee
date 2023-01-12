@@ -12,12 +12,12 @@ class TestParseField(unittest.TestCase):
 
     def test_valid_positive_modifier(self):
         modifier, _, values = parse_field('5+1', set(range(0, 10)), {}, {}, parse_generic_element)
-        self.assertEqual(1, modifier)
+        self.assertEqual(-1, modifier)
         self.assertEqual({5}, values)
 
     def test_valid_negative_modifier(self):
         modifier, _, values = parse_field('5-1', set(range(0, 10)), {}, {}, parse_generic_element)
-        self.assertEqual(-1, modifier)
+        self.assertEqual(1, modifier)
         self.assertEqual({5}, values)
 
     def test_valid_inversion(self):
@@ -30,7 +30,7 @@ class TestParseField(unittest.TestCase):
 
     def test_valid_complex_expression(self):
         modifier, _, values = parse_field('!2..10/2,DEC-3', set(range(1, 13)), {'DEC': {12}}, {}, parse_generic_element)
-        self.assertEqual(-3, modifier)
+        self.assertEqual(3, modifier)
         self.assertEqual({1, 3, 5, 7, 9, 11}, values)
 
     def test_valid_complex_expression_2(self):
