@@ -3,7 +3,7 @@ from typing import Callable, Optional
 
 from .exceptions import CroneeOutOfBoundError, CroneeAliasError, CroneeValueError, CroneeRangeOrderError, \
     CroneeSyntaxError, CroneeEmptyValuesError
-from .cronee import IndexValidator, Validator
+from .cronee import IndexValidator, Validator, dow_index_validator
 
 Aliases = dict[str, set[int]]
 ElementParser = Callable[[str, set[int], Aliases], tuple[Optional[Validator], set[int]]]
@@ -18,6 +18,8 @@ KEYWORD_POSITIVE_MODIFIER = '+'
 KEYWORD_INDEX = '#'
 
 MODIFIERS_RANGE = set(range(0, 366))
+
+DOW_INDEX_RANGE = set(range(1, 6))
 
 
 def parse_value(value: str,
@@ -253,24 +255,44 @@ def parse_generic_element(expression: str,
     return None, values
 
 
+def parse_dow_element(expression: str,
+                      valid_range: set[int],
+                      aliases: Aliases) -> tuple[Optional[Validator], set[int]]:
+    validator = None
+    step = 1
+    if KEYWORD_STEP in expression:
+        step, expression = parse_step(expression, valid_range, aliases)
+
+    if KEYWORD_RANGE in expression:
+        values = parse_range(expression, valid_range, aliases)
+    elif KEYWORD_INDEX in expression:
+        return parse_index(expression, valid_range, aliases, DOW_INDEX_RANGE, {}, dow_index_validator), set()
+    else:
+        values = parse_value(expression, valid_range, aliases)
+
+    mini = min(values)
+    values = set(filter(lambda v: v % step == mini % step, values))
+    return validator, values
+
+
 def parse_field(expression: str,
                 valid_range: set[int],
                 value_aliases: Aliases,
                 step_aliases: Aliases,
                 element_parser: ElementParser) -> tuple[int, list[Validator], set[int]]:
     """
-    Parses a string expression for a field and returns a tuple of the parsed values and a set of integers within a given valid range. The parsed values can be modified by positive and negative modifiers, inverted, and be a list of values and ranges.
+        Parses a string expression for a field and returns a tuple of the parsed values and a set of integers within a given valid range. The parsed values can be modified by positive and negative modifiers, inverted, and be a list of values and ranges.
 
-    :param expression: A string representing the expression to be parsed.
-    :param valid_range: A set of integers representing the valid range of values.
-    :param value_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the `value` argument.
-    :param step_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the `step` argument.
-    :param element_parser: A callable that takes a string `expression`, a `valid_range` and `value_aliases` as arguments and returns a set of integers
-    :return: a tuple of the parsed values ( an int indicating the sum of the coefficients of the positive and negative modifier multiplied by their respective modifier values) and a set of integers representing the parsed value.
-    :raises: CroneeEmptyValuesError, if the parsed values set is empty.
-    :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid or if there is more than one modifier in the same field
-    :raises: CroneeValueError, if the step or value or start or stop or modifier values are not valid.
-    """
+        :param expression: A string representing the expression to be parsed.
+        :param valid_range: A set of integers representing the valid range of values.
+        :param value_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the `value` argument.
+        :param step_aliases: A dictionary of string keys and set of integers values, representing possible aliases for the `step` argument.
+        :param element_parser: A callable that takes a string `expression`, a `valid_range` and `value_aliases` as arguments and returns a set of integers
+        :return: a tuple of the parsed values ( an int indicating the sum of the coefficients of the positive and negative modifier multiplied by their respective modifier values) and a set of integers representing the parsed value.
+        :raises: CroneeEmptyValuesError, if the parsed values set is empty.
+        :raises: CroneeSyntaxError, if the syntax of the `expression` argument is invalid or if there is more than one modifier in the same field
+        :raises: CroneeValueError, if the step or value or start or stop or modifier values are not valid.
+        """
     modifier, expression = parse_modifiers(expression, step_aliases)
     inversion, expression = parse_inversion(expression)
 
