@@ -75,3 +75,17 @@ class TestNextOccurrences(unittest.TestCase):
             ],
             occurrences
         )
+
+    def test_index_with_plain_values(self):
+        c = parse_expression('0 8 * * 4,FRI#3')
+        occurrences = c.next_occurrences(easy_datetime(year=2023, month=1, day=1, hour=0, minute=0), 5)
+        self.assertEqual(
+            [
+                easy_datetime(year=2023, month=1, day=5, hour=8, minute=0),
+                easy_datetime(year=2023, month=1, day=12, hour=8, minute=0),
+                easy_datetime(year=2023, month=1, day=19, hour=8, minute=0),
+                easy_datetime(year=2023, month=1, day=20, hour=8, minute=0),
+                easy_datetime(year=2023, month=1, day=26, hour=8, minute=0),
+            ],
+            occurrences
+        )

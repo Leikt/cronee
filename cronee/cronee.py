@@ -35,32 +35,15 @@ class SimpleCronee:
     def validate(self, dtime: datetime) -> bool:
         """ Check if the datetime is valid """
         dtime = dtime + self.offset
-        minute_is_valid = dtime.minute in self.minutes or len(self.other_validators[0]) > 0
-        hour_is_valid = dtime.hour in self.hours or len(self.other_validators[1]) > 0
-        dom_is_valid = dtime.day in self.doms or len(self.other_validators[2]) > 0
-        month_is_valid = dtime.month in self.months or len(self.other_validators[3]) > 0
-        dow_is_valid = dtime.isoweekday() in self.dows or len(self.other_validators[4]) > 0
-        other_validation = self._validate_all_other_validators(dtime)
-        return minute_is_valid and hour_is_valid and dom_is_valid and month_is_valid and \
-            dow_is_valid and other_validation
+        minute_is_valid = dtime.minute in self.minutes or self._dynamic_validation(0, dtime)
+        hour_is_valid = dtime.hour in self.hours or self._dynamic_validation(1, dtime)
+        dom_is_valid = dtime.day in self.doms or self._dynamic_validation(2, dtime)
+        month_is_valid = dtime.month in self.months or self._dynamic_validation(3, dtime)
+        dow_is_valid = dtime.isoweekday() in self.dows or self._dynamic_validation(4, dtime)
+        return minute_is_valid and hour_is_valid and dom_is_valid and month_is_valid and dow_is_valid
 
-    def _validate_all_other_validators(self, dtime: datetime) -> bool:
-        return all(map(lambda i: self._validate_one_other_validator(i, dtime), range(0, 5)))
-
-    def _validate_one_other_validator(self, index: int, dtime: datetime) -> bool:
-        return len(self.other_validators[index]) == 0 or \
-            any(map(lambda v: v(dtime), self.other_validators[index]))
-
-    def _generic_delta(self, index: int,
-                       delta: timedelta,
-                       valid_range: set[int],
-                       dtime: datetime) -> tuple[bool, datetime]:
-        if len(self.other_validators[index]) > 0:
-            while not dtime.isoweekday() in valid_range and \
-                    not self._validate_one_other_validator(4, dtime):
-                dtime += delta
-            return True, self.next_occurrence(dtime)
-        return False, dtime
+    def _dynamic_validation(self, index: int, dtime: datetime) -> bool:
+        return any(map(lambda v: v(dtime), self.other_validators[index]))
 
     def next_occurrence(self, dtime: datetime) -> datetime:
         delta = timedelta(minutes=1)

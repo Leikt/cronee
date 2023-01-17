@@ -1,7 +1,7 @@
 import unittest
 
 from cronee import CroneeEmptyValuesError
-from cronee.parser import parse_generic_element, parse_field
+from cronee.parser import parse_generic_element, parse_field, parse_dow_element
 
 
 class TestParseField(unittest.TestCase):
@@ -41,6 +41,16 @@ class TestParseField(unittest.TestCase):
                                           parse_generic_element)
         self.assertEqual(0, modifier)
         self.assertEqual({2, 7, 8, 9}, values)
+
+    def test_valid_index_in_list(self):
+        modifier, validators, values = parse_field('3,FRI#3,4',
+                                                   set(range(1, 8)),
+                                                   {'FRI': {5}},
+                                                   {},
+                                                   parse_dow_element)
+        self.assertEqual(0, modifier)
+        self.assertEqual({3, 4}, values)
+        self.assertEqual(1, len(validators))
 
     def test_empty_value_error(self):
         with self.assertRaises(CroneeEmptyValuesError):
