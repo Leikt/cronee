@@ -69,11 +69,12 @@ class SimpleCronee:
         return dtime
 
     def next_occurrences(self, dtime: datetime, count: int = 10) -> list[datetime]:
+        delta = timedelta(minutes=1)
         occurrences = []
         for i in range(count):
             dtime = self.next_occurrence(dtime)
             occurrences.append(dtime)
-            dtime = dtime + timedelta(minutes=1)
+            dtime = dtime + delta
         return occurrences
 
 
